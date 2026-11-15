@@ -2,6 +2,12 @@
 
 Browserbasiertes Familienabenteuer mit Three.js. Bestehendes Spiel: **v0.10** (`index.html`). OSM-Testkarte: **v0.11.2**. Die bisherige OSM-3D-Vorschau v0.13 wird in Phase 1 zu einer begehbaren **v0.14** weiterentwickelt.
 
+## Figurenprototyp v0.15
+
+Diese Entwicklungsbranch baut auf der v0.14 aus PR #1 auf. Neu sind eigene GLB-Modelle von Simon, Swantje und Ida nach den Charakterkarten, Skelettanimationen, ein separates Figurenatelier und eine erste Material-/Lichtüberarbeitung. [Umfang und Grenzen](docs/phase-2-characters.md) · [Modellherkunft](assets/characters/README.md).
+
+`character-studio.html` bietet Ganzkörper-/Gesichtsansicht und Stand-/Gehanimation. Im Spiel über `?` → „Figurenatelier öffnen“. Die Modelle sind ein erster stilisierter Entwurf; der Detailgrad der Referenzkarten ist noch nicht erreicht. Private Vorlagen sind nicht enthalten. Simons Größe bleibt nach dem ursprünglichen Auftrag 1,88 m, trotz der abweichenden Angabe auf seiner Karte.
+
 ## Phase 1 starten
 
 ```sh
@@ -17,7 +23,7 @@ Auf GitHub Pages liegt der Abschnitt nach einem geprüften Merge unter `https://
 - Ein begrenzter Bereich von 420 × 360 lokalen Metern um den bisherigen Startpunkt, mit 108 dargestellten OSM-Gebäuden. Der vollständige Snapshot mit **122 Wegen und 227 Gebäuden** bleibt erhalten.
 - Gebäudegrundrisse mit daran ausgerichteten Satteldächern, Giebeln, Holzfassaden, Fenstern, Tür, Rahmen und Sockeln. Details werden in der Entfernung ausgeblendet.
 - Kontinuierliches Dünengelände mit geglätteten Übergängen zu Hausfundamenten und Straßen; Strandhafer als instanzierte Geometrie.
-- Simon als animierter, 1,88 m großer Platzhalter und Swantje als 1,87 m großer Platzhalter. Keine importierten Familienmodelle oder privaten Fotos.
+- Simon (1,88 m), Swantje (1,87 m) und Ida (1,05 m) als eigene animierte GLB-Entwürfe. Keine vorgeblich vorhandenen Familienmodelle oder privaten Fotos.
 - Gehen relativ zur Kamera, Kollisionen gegen Gebäudegrundrisse, geparktes Auto und Swantje. Bodenhöhe entspricht den tatsächlich gerenderten Geländedreiecken.
 - Gespräche und sechs Muscheln als kleine Suchaufgabe; der Zähler gilt für die aktuelle Sitzung.
 - Sparsame Grafik für Touchgeräte, optional höhere Qualität mit dynamischen Schatten. Three.js 0.160.1 wird für diesen Abschnitt lokal mitgeliefert.
@@ -53,12 +59,13 @@ Kartendaten: **© [OpenStreetMap-Mitwirkende](https://www.openstreetmap.org/copy
 npm test
 ```
 
-Node.js 22 oder neuer, ohne Abhängigkeiten. Geprüft werden OSM-Knoten und Anzahlen, gedrehte Dächer, ebene Fundamente und Straßenkorridore, Geländehöhen, Kollisionen einschließlich schneller Bewegung sowie das Ausschneiden von Gebäudeumrissen aus Straßenflächen. Der neue PR-Workflow führt diese Tests und Syntaxprüfungen aus. Er veröffentlicht nichts und verändert keine OSM-Daten.
+Node.js 22 oder neuer, ohne Abhängigkeiten. Zusätzlich zu den sieben Weltgeometrieprüfungen gibt es sieben Prüfungen für GLB-Struktur, eigenständige Texturen, Höhe, Skinning, Animationsschleifen und Dateibudgets. Geprüft werden OSM-Knoten und Anzahlen, gedrehte Dächer, ebene Fundamente und Straßenkorridore, Geländehöhen, Kollisionen einschließlich schneller Bewegung sowie das Ausschneiden von Gebäudeumrissen aus Straßenflächen. Der neue PR-Workflow führt diese Tests und Syntaxprüfungen aus. Er veröffentlicht nichts und verändert keine OSM-Daten.
 
 Für die automatisierte Browserprüfung: Python mit `playwright`, Chromium, laufender HTTP-Server:
 
 ```sh
 python3 tests/browser_smoke.py
+python3 tests/characters_browser.py
 # Optional: CHROMIUM_PATH=/pfad/zu/chromium GAME_URL=http://localhost:8000
 # Screenshots und report.json: /tmp/sondervig-browser-checks
 ```

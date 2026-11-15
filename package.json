@@ -2,5 +2,8 @@
   "name": "sondervig-adventure-2026",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test tests/world.test.js", "serve": "python3 -m http.server 8000" }
+  "scripts": {
+    "test": "node --test tests/world.test.js tests/characters.test.js",
+    "serve": "python3 -m http.server 8000"
+  }
 }
