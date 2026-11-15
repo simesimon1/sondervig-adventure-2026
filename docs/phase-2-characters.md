@@ -26,3 +26,7 @@ blender --background --factory-startup --python tools/build-characters.py
 ## Grenzen
 
 Stilisierter erster Modell- und Animationsdurchgang. Keine Unreal-Engine-Qualität oder Übereinstimmung mit der Detailtreue der Charakterkarten behauptet. Tilda und weitere Familienmitglieder noch nicht modelliert. Keine neuen behaupteten geografischen Details. Keine neue Bestätigung der Hausadresse oder echten Geländehöhen. Noch keine Hardwaremessung von Android/iOS-Bildraten; Software-WebGL dient der Funktionsprüfung, nicht als Smartphone-Benchmark.
+
+## Durchgeführte lokale Prüfung
+
+Am 15.11.2026 bestanden: 14/14 Node-Tests, fünf Bildschirmkonfigurationen des bestehenden Browser-Smoke-Tests, sechs Figuren-/Höhen-/Animationsprüfungen in Desktop- und Smartphone-Ansicht sowie der simulierte Ausfall einer GLB-Datei. Modulsyntax und unveränderte OSM-Geometrie ebenfalls geprüft. Die Browser laufen auf Linux/SwiftShader; dies ist kein Nachweis einer bestimmten Bildrate auf echten Mobilgeräten.

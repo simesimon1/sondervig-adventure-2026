@@ -4,7 +4,7 @@ Existing output directories are never overwritten. No private references are rea
 """
 import argparse,hashlib,json,subprocess
 from pathlib import Path
-parser=argparse.ArgumentParser();parser.add_argument('--version',required=True);parser.add_argument('--pr',required=True,type=int);parser.add_argument('--commit',default='HEAD');parser.add_argument('--output',required=True)
+parser=argparse.ArgumentParser();parser.add_argument('--version',required=True);parser.add_argument('--pr',type=int);parser.add_argument('--commit',default='HEAD');parser.add_argument('--output',required=True)
 args=parser.parse_args();root=Path(__file__).resolve().parents[1];destination=Path(args.output)
 if destination.exists():raise SystemExit('Output already exists; published test versions are preserved.')
 sha=subprocess.check_output(['git','rev-parse',args.commit],cwd=root,text=True).strip()
