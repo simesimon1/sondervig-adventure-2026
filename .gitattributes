@@ -1,0 +1,2 @@
+# Preserve upstream formatting and collapse the bundled library in PR reviews.
+vendor/three.module.js linguist-vendored whitespace=-space-before-tab
