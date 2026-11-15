@@ -1,6 +1,8 @@
 import * as T from '../vendor/three.module.js';
 import { AREA, GROUND, HOME_ID, clamp, inside, makeWorld, SpatialGrid, blocked, moveActor, localPoint, bounds } from './world.js';
-import { materials, terrainMesh, roadMeshes, buildingModel, vegetation, person, carModel } from './scenery.js';
+import { materials, terrainMesh, roadMeshes, buildingModel, vegetation, carModel } from './scenery.js';
+import { loadCharacter } from './characters.js';
+import { coastalEnvironment } from './lighting.js';
 
 const $ = s => document.querySelector(s), scene = new T.Scene();
 scene.background = new T.Color(0xbacfd1); scene.fog = new T.Fog(0xbacfd1, 105, 340);
@@ -11,14 +13,15 @@ catch (e) { $('#status').textContent = 'WebGL konnte nicht starten. Bitte einen 
 renderer.setSize(innerWidth, innerHeight); renderer.outputColorSpace = T.SRGBColorSpace;
 renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
 renderer.shadowMap.type = T.PCFSoftShadowMap; $('#game').append(renderer.domElement);
-scene.add(new T.HemisphereLight(0xf0f5ed, 0x899078, 2.1));
+coastalEnvironment(renderer, scene);
+scene.add(new T.HemisphereLight(0xf0f5ed, 0x899078, 1.35));
 const sun = new T.DirectionalLight(0xffedce, 2.5); sun.position.set(-45, 70, 35); sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -52, right: 52, top: 52, bottom: -52, near: 1, far: 180 });
 sun.shadow.camera.updateProjectionMatrix();
 sun.shadow.bias = -.0005; sun.shadow.normalBias = .035; scene.add(sun, sun.target);
 const mats = materials(), keys = new Set(), pointers = new Map(), joystick = { x: 0, z: 0, id: null };
-let world, collisionGrid, player, home, car, family, grass = [], buildingObjects = [], interactables = [], collectibles = [], collected = 0, ready = false;
-let yaw = -1.0, pitch = .58, dist = 27, target = new T.Vector3(), oldCenter = null, oldDist = 0, qualityMode = 'auto';
+let world, collisionGrid, player, home, car, family, ida, grass = [], buildingObjects = [], interactables = [], collectibles = [], collected = 0, ready = false;
+let yaw = -1.0, pitch = .48, dist = 16, target = new T.Vector3(), oldCenter = null, oldDist = 0, qualityMode = 'auto';
 let messageUntil = 0, frameTime = 0, last = performance.now(), lastLod = 0, motionTime = 0;
 const touchDevice = matchMedia('(pointer: coarse)').matches;
 function quality(mode = qualityMode) {
@@ -117,12 +120,19 @@ async function load() {
     const carPoints = [[-1.04, -2.2], [1.04, -2.2], [1.04, 2.2], [-1.04, 2.2]].map(([x, z]) => ({ x: carPoint.x + x * Math.cos(car.rotation.y) + z * Math.sin(car.rotation.y), z: carPoint.z - x * Math.sin(car.rotation.y) + z * Math.cos(car.rotation.y) }));
     world.colliders.push({ points: carPoints, bounds: bounds(carPoints), id: 'parked-car' }); collisionGrid = new SpatialGrid(world.colliders);
     const familyPoint = safePoint(localPoint(home.frame, 8, -5), .7);
-    family = person(mats, { height: 1.87, shirt: 0xa7766d, longHair: true }); family.position.set(familyPoint.x, world.terrain.height(familyPoint.x, familyPoint.z), familyPoint.z); family.rotation.y = .4; scene.add(family);
+    $('#status').textContent = 'Lade Simon, Swantje und Ida …';
+    const avatars = await Promise.all(['simon','swantje','ida'].map(id => loadCharacter(id, mats)));
+    family = avatars[1]; family.position.set(familyPoint.x, world.terrain.height(familyPoint.x, familyPoint.z), familyPoint.z); family.rotation.y = .4; scene.add(family);
     const circle = Array.from({ length: 12 }, (_, i) => ({ x: familyPoint.x + Math.cos(i * Math.PI / 6) * .3, z: familyPoint.z + Math.sin(i * Math.PI / 6) * .3 }));
     world.colliders.push({ points: circle, bounds: bounds(circle), id: 'swantje' }); collisionGrid = new SpatialGrid(world.colliders);
     const spawn = safePoint(localPoint(home.frame, 8, 0));
-    player = person(mats); player.position.set(spawn.x, world.terrain.height(spawn.x, spawn.z), spawn.z); scene.add(player);
+    player = avatars[0]; player.position.set(spawn.x, world.terrain.height(spawn.x, spawn.z), spawn.z); scene.add(player);
+    const childPoint = safePoint(localPoint(home.frame, 10, -6.8), .55);
+    ida = avatars[2]; ida.position.set(childPoint.x, world.terrain.height(childPoint.x, childPoint.z), childPoint.z); ida.rotation.y = .65; scene.add(ida);
+    const childCircle = Array.from({ length: 12 }, (_, i) => ({ x: childPoint.x + Math.cos(i * Math.PI / 6) * .24, z: childPoint.z + Math.sin(i * Math.PI / 6) * .24 }));
+    world.colliders.push({ points: childCircle, bounds: bounds(childCircle), id: 'ida' }); collisionGrid = new SpatialGrid(world.colliders);
     target.copy(player.position).y += 1.0;
+    interactables.push({ x: childPoint.x, z: childPoint.z, range: 2.1, act: () => say('Ida: „Ich suche auch Muscheln! Zeigst du mir deine Lieblingsmuschel?“') });
     interactables.push({ x: home.frame.center.x, z: home.frame.center.z, range: 11, act: () => say('Unser Ausgangspunkt: das vorläufige Ferienhausmodell am bisherigen Startmarker. Fassade, Dach und Höhen sind angenähert.', 6500) },
       { x: familyPoint.x, z: familyPoint.z, range: 2.5, act: () => say('Swantje: „Komm, wir gehen ein Stück durch die Nachbarschaft. Findest du die sechs Muscheln?“') },
       { x: carPoint.x, z: carPoint.z, range: 3.8, act: () => say('Das Auto bleibt in Phase 1 geparkt. Die Ausflüge folgen später; im bisherigen Spiel sind sie weiter erreichbar.') });
@@ -133,11 +143,11 @@ async function load() {
       const item = { x: p.x, z: p.z, range: 1.6, object, done: false, act: () => { item.done = true; object.visible = false; collected++; $('#shells').textContent = `🐚 ${collected} / 6`; say(collected === 6 ? 'Alle sechs Muscheln gefunden! Zeit für einen Spaziergang durch die Dünen.' : `Muschel gefunden · ${collected} von 6`); } };
       collectibles.push(item); interactables.push(item);
     }
-    $('#status').textContent = `${world.roads.length} Wege · ${world.buildings.length} Gebäude im Datensatz · Detailbereich um den Startpunkt`;
+    $('#status').textContent = `${world.roads.length} Wege · ${world.buildings.length} Gebäude im Datensatz · Figurenentwurf v0.15${avatars.some(a => a.userData.model === 'fallback') ? ' · Ersatzfigur aktiv' : ''}`;
     ready = true;
     if (new URLSearchParams(location.search).has('test')) {
       // Deliberate opt-in for reproducible browser checks; absent in normal play.
-      window.__game = { world, player, family, car, home, get grid() { return collisionGrid; }, collectibles, interactables,
+      window.__game = { world, player, family, ida, car, home, get grid() { return collisionGrid; }, collectibles, interactables,
         state: () => ({ yaw, pitch, dist, target: target.toArray(), player: player.position.toArray(), pointers: pointers.size, joystick: { ...joystick }, collected, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, frameTime, shadows: renderer.shadowMap.enabled }),
         teleport: (x, z) => { const p = safePoint({ x, z }); player.position.set(p.x, world.terrain.height(p.x, p.z), p.z); resetCamera(); }, resetCamera, renderer, scene, camera };
     }
@@ -159,7 +169,7 @@ function frame(now) {
     player.position.set(next.x, next.y, next.z); delta.subVectors(player.position, before); target.add(delta);
     const moved = Math.hypot(delta.x, delta.z), amount = clamp(moved / (3.2 * dt || 1), 0, 1); motionTime += dt * amount;
     if (moved > .001) { const angle = Math.atan2(mx, mz); player.rotation.y += Math.atan2(Math.sin(angle - player.rotation.y), Math.cos(angle - player.rotation.y)) * Math.min(1, dt * 12); }
-    player.userData.animate(motionTime, amount);
+    player.userData.update(dt, amount); family.userData.update(dt, 0); ida.userData.update(dt, 0);
   }
   pitch = clamp(pitch, .2, 1.42); dist = clamp(dist, 4, 250); target.x = clamp(target.x, AREA.minX + 2, AREA.maxX - 2); target.z = clamp(target.z, AREA.minZ + 2, AREA.maxZ - 2);
   target.y = world.terrain.height(target.x, target.z) + 1;
@@ -182,6 +192,7 @@ function frame(now) {
       $('#message').textContent = near ? (near.object ? '🐚 Muschel entdeckt · E / Aktion zum Aufheben' : 'E / Aktion zum Interagieren') : 'WASD oder Joystick · Kamera mit Maus / Finger drehen';
     }
   }
+  const wind = grass[0]?.material.userData.wind; if (wind) wind.value = now / 1000;
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);

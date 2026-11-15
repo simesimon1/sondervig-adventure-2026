@@ -14,12 +14,25 @@ function texture(kind) {
   if (kind === 'roof') { c.fillStyle = '#171f1e'; for (let x = 0; x < 256; x += 32) c.fillRect(x, 0, 2, 256); for (let y = 0; y < 256; y += 64) c.fillRect(0, y, 256, 1); }
   const tex = new T.CanvasTexture(cv); tex.wrapS = tex.wrapT = T.RepeatWrapping; tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4; return tex;
 }
+function surfaceRelief(kind) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
+  c.fillStyle = '#888'; c.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 3200; i++) { const v = Math.round(100 + random(i + 37) * 55); c.fillStyle = `rgb(${v},${v},${v})`;
+    c.fillRect(random(i) * 128, random(i + 3) * 128, kind === 'wood' ? .5 : 1, kind === 'wood' ? 5 + random(i + 11) * 14 : 1);
+  }
+  if (kind === 'wood' || kind === 'roof') { c.fillStyle = '#333'; for (let x = 0; x < 128; x += 16) c.fillRect(x, 0, kind === 'wood' ? 1 : 2, 128); }
+  const texture = new T.CanvasTexture(cv); texture.wrapS = texture.wrapT = T.RepeatWrapping; return texture;
+}
 export function materials() {
   const standard = (color, rest = {}) => new T.MeshStandardMaterial({ color, roughness: .9, ...rest });
-  return { ground: standard(0xffffff, { map: texture('ground'), vertexColors: true }), wood: standard(0xd6ccbb, { map: texture('wood'), side: T.DoubleSide }),
+  const result = { ground: standard(0xffffff, { map: texture('ground'), vertexColors: true }), wood: standard(0xd6ccbb, { map: texture('wood'), side: T.DoubleSide }),
     roof: standard(0xc0c5bf, { map: texture('roof'), side: T.DoubleSide }), trim: standard(0xe2dfce), glass: standard(0x739ba1, { roughness: .22, metalness: .35 }),
     dark: standard(0x333b39), concrete: standard(0x8d8b7e), road: standard(0xffffff, { map: texture('road') }), path: standard(0xffffff, { map: texture('path') }),
     skin: standard(0xd6ad8b), hair: standard(0x594238), shirt: standard(0x536f82), pants: standard(0x3c4a53), shoes: standard(0x45423c), car: standard(0x456a74, { roughness: .36, metalness: .3 }) };
+  for (const [key, kind, depth] of [['ground','sand',.045], ['wood','wood',.018], ['roof','roof',.012], ['path','sand',.025]]) {
+    result[key].bumpMap = surfaceRelief(kind); result[key].bumpScale = depth; result[key].envMapIntensity = .35;
+  }
+  return result;
 }
 export class Batch {
   constructor() { this.position = []; this.normal = []; this.uv = []; }
@@ -178,14 +191,25 @@ export function buildingModel(b, mats) {
 }
 
 export function vegetation(world, scene) {
-  // Three crossed, tapered blades per tuft, all tufts share one draw call.
+  // Curved blades with a narrow tip. Shared geometry and instancing keep
+  // draw calls bounded; the same grass clearance remains in force.
   const p = [], idx = [];
-  for (let j = 0; j < 3; j++) {
-    const a = j * Math.PI / 3, x = Math.cos(a) * .06, z = Math.sin(a) * .06, k = p.length / 3;
-    p.push(-x, 0, -z, x, 0, z, x * 1.8, .8, z * 1.8, x * 2.7, 1.1, z * 2.7); idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+  for (let j = 0; j < 6; j++) {
+    const a = j * Math.PI / 3 + .21, dx = Math.cos(a), dz = Math.sin(a), k = p.length / 3;
+    const h = .62 + random(j + 11) * .56;
+    for (let i = 0; i <= 3; i++) {
+      const t = i / 3, width = .025 * (1 - t) + .001, bend = t * t * .20;
+      p.push(dx * bend - dz * width, t * h, dz * bend + dx * width, dx * bend + dz * width, t * h, dz * bend - dx * width);
+      if (i < 3) { const n = k + i * 2; idx.push(n, n + 1, n + 2, n + 1, n + 3, n + 2); }
+    }
   }
   const geometry = new T.BufferGeometry(); geometry.setAttribute('position', new T.Float32BufferAttribute(p, 3)); geometry.setIndex(idx); geometry.computeVertexNormals();
-  const mat = new T.MeshLambertMaterial({ color: 0xa6ab76, side: T.DoubleSide });
+  const mat = new T.MeshLambertMaterial({ color: 0xb0b487, side: T.DoubleSide });
+  const wind = { value: 0 }; mat.userData.wind = wind;
+  mat.onBeforeCompile = shader => {
+    shader.uniforms.coastalTime = wind;
+    shader.vertexShader = 'uniform float coastalTime;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed.x += sin(coastalTime * 1.4 + instanceMatrix[3].x * .2 + instanceMatrix[3].z * .15) * position.y * position.y * .045;');
+  };
   const tiles = new Map(), matrix = new T.Matrix4(), quat = new T.Quaternion(), count = 14000;
   for (let i = 0; i < count; i++) {
     const x = AREA.minX + random(i * 3 + 4) * (AREA.maxX - AREA.minX), z = AREA.minZ + random(i * 5 + 99) * (AREA.maxZ - AREA.minZ), c = world.clearance(x, z);
