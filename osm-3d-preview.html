@@ -1,36 +1,40 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><title>Søndervig OSM 3D Vorschau</title><style>*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;font:15px system-ui;background:#a9d9ec}canvas{display:block;touch-action:none}#hud{position:fixed;top:12px;left:12px;right:12px;max-width:440px;padding:14px;border-radius:14px;background:#173747e9;color:white;pointer-events:none}#hud b{font-size:18px}#hud p{margin:6px 0}#ctrl{position:fixed;right:12px;bottom:20px;display:flex;gap:8px}button{border:0;border-radius:12px;padding:15px;font-size:19px;background:#fff;color:#173747;box-shadow:0 2px 9px #0002}#reset{font-size:14px}</style></head><body><div id="hud"><b>🏡 Søndervig · 3D-Vorschau v0.13</b><p id="status">Lade gespeicherte OSM-Karte …</p><small>Ein Finger: drehen · Zwei Finger: zoomen und verschieben · © OpenStreetMap-Mitwirkende (ODbL). Dünen und Bepflanzung sind künstlerische Ergänzungen, keine vermessenen Geländehöhen.</small></div><div id="ctrl"><button id="reset">Zentrieren</button><button id="plus">＋</button><button id="minus">－</button></div><script type="module">
-import * as T from 'https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js';
-const scene=new T.Scene();scene.background=new T.Color(0xaddceb);scene.fog=new T.Fog(0xaddceb,650,1600);
-const camera=new T.PerspectiveCamera(53,innerWidth/innerHeight,.1,2500),renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));renderer.setSize(innerWidth,innerHeight);document.body.prepend(renderer.domElement);
-scene.add(new T.HemisphereLight(0xffffff,0x8b947c,2.1));const sun=new T.DirectionalLight(0xffe9c7,2.1);sun.position.set(-120,240,100);scene.add(sun);
-const mat=(c)=>new T.MeshLambertMaterial({color:c,side:T.DoubleSide});
-function add(g,c,x=0,y=0,z=0){const m=new T.Mesh(g,mat(c));m.position.set(x,y,z);scene.add(m);return m}
-add(new T.PlaneGeometry(1400,1400),0x9aa783,0,-.12,0).rotation.x=-Math.PI/2;
-const occupied=[];function keepArea(x,z,r){occupied.push({x,z,r})}
-const O={lat:56.11246784,lon:8.12092021};function xyz(p){return new T.Vector3((p.lon-O.lon)*111320*Math.cos(O.lat*Math.PI/180),0,-(p.lat-O.lat)*111320)}
-function road(geom,kind){let foot=/footway|path|pedestrian|steps|cycleway|track/.test(kind),w=foot?2.1:kind==='residential'?5.2:6.5,c=foot?0xcabca1:0x535b5d;for(let i=1;i<geom.length;i++){let a=xyz(geom[i-1]),b=xyz(geom[i]),d=b.clone().sub(a),len=d.length();if(len<.15)continue;let m=add(new T.BoxGeometry(w,.08,len),c,(a.x+b.x)/2,.03,(a.z+b.z)/2);m.rotation.y=Math.atan2(d.x,d.z);let steps=Math.max(1,Math.ceil(len/3));for(let j=0;j<=steps;j++){let t=j/steps;keepArea(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t,w/2+4)}}}
-function house(geom,tags,index){let pts=geom.map(xyz);if(pts.length<4)return;if(pts[0].distanceTo(pts.at(-1))<.01)pts.pop();let minx=Math.min(...pts.map(p=>p.x)),maxx=Math.max(...pts.map(p=>p.x)),minz=Math.min(...pts.map(p=>p.z)),maxz=Math.max(...pts.map(p=>p.z));let w=maxx-minx,d=maxz-minz;if(w<1||d<1||w>110||d>110)return;let cx=(minx+maxx)/2,cz=(minz+maxz)/2;keepArea(cx,cz,Math.hypot(w,d)*.6+3);let h=3.2+(index%4)*.25;let shape=new T.Shape();shape.moveTo(pts[0].x,-pts[0].z);for(let p of pts.slice(1))shape.lineTo(p.x,-p.z);shape.closePath();let geo=new T.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false});geo.rotateX(-Math.PI/2);add(geo,[0xa97753,0xc1a78a,0x916c52,0xd0bba0][index%4],0,.03,0);
-const roofColor=[0x454341,0x655b52,0x413d3b,0x785f50][index%4],rise=Math.min(2.1,Math.min(w,d)*.27);
-if(w>4&&d>4){let alongX=w>=d;let roof=new T.BufferGeometry(),v=[],ind=[];if(alongX){let x1=minx-.35,x2=maxx+.35,z1=minz-.55,z2=maxz+.55,zm=(z1+z2)/2;v=[x1,h,z1,x2,h,z1,x2,h,z2,x1,h,z2,x1,h+rise,zm,x2,h+rise,zm];ind=[0,1,5,0,5,4,4,5,2,4,2,3,0,4,3,1,2,5]}else{let z1=minz-.35,z2=maxz+.35,x1=minx-.55,x2=maxx+.55,xm=(x1+x2)/2;v=[x1,h,z1,x2,h,z1,x2,h,z2,x1,h,z2,xm,h+rise,z1,xm,h+rise,z2];ind=[0,4,5,0,5,3,4,1,2,4,2,5,0,1,4,3,5,2]}roof.setAttribute('position',new T.Float32BufferAttribute(v,3));roof.setIndex(ind);roof.computeVertexNormals();add(roof,roofColor)}else add(new T.BoxGeometry(w+.5,.18,d+.5),roofColor,cx,h+.15,cz);
-if(w>5&&d>5){let win=add(new T.BoxGeometry(Math.min(1.4,w*.23),1.05,.06),0xb9dfdf,cx,h*.56,maxz+.055);let door=add(new T.BoxGeometry(.95,1.85,.07),0x3f5857,cx-w*.28,.96,maxz+.07);}
-}
-
-function random(seed){let v=Math.sin(seed*127.1+42.7)*43758.5453;return v-Math.floor(v)}
-function free(x,z,r){for(const o of occupied){let dx=o.x-x,dz=o.z-z;if(dx*dx+dz*dz<(o.r+r)*(o.r+r))return false}return true}
-function dune(x,z,rx,rz,height,seed){const seg=24,rings=7,vertices=[],indices=[];for(let j=0;j<=rings;j++){let t=j/rings;for(let i=0;i<=seg;i++){let a=i/seg*Math.PI*2,rough=1+.06*Math.sin(a*3+seed)+.045*Math.cos(a*7+seed),r=t*rough;let y=height*Math.pow(Math.max(0,1-t*t),1.65)*(1+.12*Math.sin(a*4+seed));vertices.push(x+Math.cos(a)*rx*r,y+.01,z+Math.sin(a)*rz*r);if(i<seg&&j<rings){let k=j*(seg+1)+i;indices.push(k,k+seg+1,k+1,k+1,k+seg+1,k+seg+2)}}}let geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();add(geo,seed%2?0xd9c999:0xe2d1a4);
-for(let i=0;i<18;i++){let a=random(seed*100+i)*Math.PI*2,rr=.2+random(seed*100+i+33)*.62,gx=x+Math.cos(a)*rx*rr,gz=z+Math.sin(a)*rz*rr,gy=height*Math.pow(Math.max(0,1-rr*rr),1.65);let grass=add(new T.ConeGeometry(.09,.7+random(i+seed)*.65,3),i%3?0x74855b:0x9a9b63,gx,gy+.38,gz);grass.rotation.z=(random(i+19)*.5-.25)}}
-function landscape(){// Only place small dunes where OSM road/building clearance is available.
-let placed=0;for(let i=0;i<700&&placed<65;i++){let x=(random(i*3+7)-.5)*590,z=(random(i*5+19)-.5)*570,rx=5+random(i+29)*8,rz=4+random(i+79)*7;if(!free(x,z,Math.max(rx,rz)+2))continue;dune(x,z,rx,rz,.9+random(i+47)*2.5,i);keepArea(x,z,Math.max(rx,rz)+1);placed++}return placed}
-
-let yaw=.7,pitch=.86,dist=155,target=new T.Vector3(),touches=new Map(),oldCenter=null,oldDist=0;
-function clamp(){pitch=Math.max(.24,Math.min(1.42,pitch));dist=Math.max(22,Math.min(650,dist))}
-function frame(){clamp();camera.position.set(target.x+Math.sin(yaw)*Math.cos(pitch)*dist,target.y+Math.sin(pitch)*dist,target.z+Math.cos(yaw)*Math.cos(pitch)*dist);camera.lookAt(target);renderer.render(scene,camera);requestAnimationFrame(frame)}frame();
-const canvas=renderer.domElement;canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);touches.set(e.pointerId,{x:e.clientX,y:e.clientY});oldCenter=null;oldDist=0});
-canvas.addEventListener('pointermove',e=>{if(!touches.has(e.pointerId))return;e.preventDefault();let old=touches.get(e.pointerId);touches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(touches.size===1){yaw-=(e.clientX-old.x)*.007;pitch+=(e.clientY-old.y)*.006}else if(touches.size===2){let p=[...touches.values()],cx=(p[0].x+p[1].x)/2,cy=(p[0].y+p[1].y)/2,dd=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);if(oldDist>0)dist*=oldDist/Math.max(10,dd);if(oldCenter){let dx=cx-oldCenter.x,dy=cy-oldCenter.y,scale=dist*.0015;target.x-=Math.cos(yaw)*dx*scale+Math.sin(yaw)*dy*scale;target.z+=Math.sin(yaw)*dx*scale-Math.cos(yaw)*dy*scale}oldDist=dd;oldCenter={x:cx,y:cy}}});
-function end(e){touches.delete(e.pointerId);oldCenter=null;oldDist=0}canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
-canvas.addEventListener('wheel',e=>{e.preventDefault();dist*=Math.exp(e.deltaY*.001)},{passive:false});
-document.querySelector('#plus').onclick=()=>dist*=.75;document.querySelector('#minus').onclick=()=>dist*=1.33;document.querySelector('#reset').onclick=()=>{target.set(0,0,0);yaw=.7;pitch=.86;dist=155};
-add(new T.CylinderGeometry(0,1.5,4,8),0xe05d47,0,3,0);
-try{let response=await fetch('./data/sondervig-osm.json',{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);let json=await response.json(),r=0,b=0;for(let el of json.elements||[]){if(!el.geometry?.length)continue;if(el.tags?.highway){road(el.geometry,el.tags.highway);r++}else if(el.tags?.building){house(el.geometry,el.tags,b);b++}}let dunes=landscape();document.querySelector('#status').textContent='✓ '+r+' Wege · '+b+' Gebäude · '+dunes+' freie Dünenflächen (stilisiert).'}catch(e){document.querySelector('#status').textContent='⚠️ Kartendatei nicht verfügbar: '+e.message}
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-</script></body></html>
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#24483f">
+  <link rel="icon" href="data:,">
+  <title>Søndervig Adventure · Küstenpfade v0.14</title>
+  <link rel="stylesheet" href="./src/game.css">
+</head>
+<body>
+  <main id="game" aria-label="Dreidimensionale Spielwelt"></main>
+  <header id="hud">
+    <div class="eyebrow">SØNDERVIG ADVENTURE 2026 <span>PHASE 01 · v0.14</span></div>
+    <h1>Ein Sommer an der Küste.</h1>
+    <p id="status" role="status">Die Nachbarschaft wird geladen …</p>
+    <div id="journey"><span class="dot"></span> Harbo Stages Vej <span id="shells">🐚 0 / 6</span></div>
+  </header>
+  <nav id="tools" aria-label="Ansicht">
+    <button id="reset" title="Kamera zur Spielfigur">Zur Figur</button>
+    <button id="survey" title="Umgebung von oben ansehen">Überblick</button>
+    <button id="quality" title="Grafikqualität wechseln">Grafik: Automatisch</button>
+    <button id="help" aria-controls="guide" aria-expanded="false" title="Steuerung und Kartengrundlage">?</button>
+  </nav>
+  <div id="message" role="status">Erkunde die Nachbarschaft. Am Ferienhaus erfährst du mehr.</div>
+  <div id="joystick" role="group" aria-label="Virtueller Joystick: ziehen zum Gehen"><span id="stick"></span><span class="stick-label">GEHEN</span></div>
+  <button id="action" aria-label="Interagieren"><span>E</span><small>AKTION</small></button>
+  <div id="zoom" aria-label="Zoom"><button id="plus" aria-label="Heranzoomen">+</button><button id="minus" aria-label="Herauszoomen">−</button></div>
+  <footer><span>Ein Finger: drehen · Zwei Finger: Zoom &amp; Verschieben</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap-Mitwirkende · ODbL</a></footer>
+  <dialog id="guide">
+    <h2>Willkommen in Søndervig</h2>
+    <p><b>Zu Fuß:</b> WASD / Pfeiltasten oder den Joystick ziehen. Die Bewegung folgt der Kamerarichtung. E / Aktion zum Interagieren und Sammeln.</p>
+    <p><b>Kamera:</b> Mit Maus oder einem Finger ziehen. Mausrad / zwei Finger zum Zoomen. Zwei Finger verschieben die Ansicht. Bewegung und Kameradrehung funktionieren gleichzeitig. „Zur Figur“ setzt die Ansicht zurück.</p>
+    <p><b>Dieser erste Abschnitt:</b> ein Spaziergang um das Ferienhaus, Gespräche und sechs Muscheln als kleine Suchaufgabe. Das Auto ist hier ein geparktes Hindernis. Die Ausflüge bleiben im <a href="./index.html">bisherigen Spiel</a> verfügbar.</p>
+    <p class="note">OSM liefert Straßenverläufe und Gebäudegrundrisse. Der bestehende Startmarker liegt bei diesem Gebäude; die Zuordnung zu Harbo Stages Vej 3 / Esmark i6582 ist noch nicht bestätigt. Fassaden, Dachrichtung, Höhen, Gelände, Vegetation und platzierte Spielobjekte sind Näherungen. Muscheln in diesem Abschnitt sind Spielobjekte, kein kartierter Strand. Keine vermessenen Höhen, keine Originalmodelle der Familie.</p>
+    <button id="closeGuide">Los geht’s</button>
+  </dialog>
+  <script type="module" src="./src/game.js"></script>
+</body>
+</html>
