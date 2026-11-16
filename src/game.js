@@ -6,6 +6,7 @@ import { coastalEnvironment } from './lighting.js';
 import { BEACH, shoreX, routeToBeach } from './coast.js';
 import { restoreMission, advance, objective } from './mission.js';
 import { beachScene } from './beach.js';
+import { SPEEDS, speedLevel, approachSpeed } from './movement.js';
 
 const $ = s => document.querySelector(s), scene = new T.Scene();
 scene.background = new T.Color(0xbacfd1); scene.fog = new T.Fog(0xbacfd1, 105, 340);
@@ -39,6 +40,11 @@ function quality(mode = qualityMode) {
   return low;
 }
 quality();
+let selectedSpeed='normal';try{selectedSpeed=speedLevel(localStorage.getItem('sondervig-speed'));}catch{}
+let walkingSpeed=SPEEDS[selectedSpeed].value;
+function selectSpeed(level){selectedSpeed=speedLevel(level);for(const button of document.querySelectorAll('[data-speed]'))button.setAttribute('aria-pressed',String(button.dataset.speed===selectedSpeed));try{localStorage.setItem('sondervig-speed',selectedSpeed);}catch{}}
+for(const button of document.querySelectorAll('[data-speed]'))button.onclick=()=>selectSpeed(button.dataset.speed);
+selectSpeed(selectedSpeed);
 function say(text, ms = 4500) { $('#message').textContent = text; messageUntil = performance.now() + ms; }
 function safePoint(wanted, radius = .38, roadClearance = -Infinity) {
   for (let i = 0; i < 300; i++) {
@@ -74,6 +80,7 @@ addEventListener('keydown', e => {
   if ($('#guide').open) return;
   if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright',' '].includes(k)) { e.preventDefault(); keys.add(k); }
   if (k === 'e' && !e.repeat) action();
+  if(['1','2','3'].includes(k)&&!e.repeat)selectSpeed(['normal','medium','fast'][Number(k)-1]);
 });
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
 addEventListener('blur', clearInput);
@@ -122,7 +129,7 @@ async function load() {
     const json=await response.json();const extra=await fetch('./data/coast-paths.json').then(r=>{if(!r.ok)throw Error('Küstenwege fehlen');return r.json();});const seen=new Set(json.elements.map(e=>e.id));json.elements.push(...extra.elements.filter(e=>!seen.has(e.id)));world = makeWorld(json);route=routeToBeach(world.roads,{x:-8,z:5});waterUpdate=beachScene(scene); home = world.buildings.find(b => b.id === HOME_ID);
     if (!home) throw Error('Startgebäude fehlt im OSM-Snapshot.');
     scene.add(terrainMesh(world, mats)); scene.add(...roadMeshes(world, mats));
-    for (const b of world.visibleBuildings) { const model = buildingModel(b, mats); scene.add(model.root); buildingObjects.push({ ...model, b }); }
+    for (const b of world.visibleBuildings) { const model = buildingModel(b, mats); scene.add(model.root); world.colliders.push(...(model.root.userData.obstacles||[])); buildingObjects.push({ ...model, b }); }
     grass = vegetation(world, scene); collisionGrid = new SpatialGrid(world.colliders);
     const carPoint = safePoint(localPoint(home.frame, 13, 6), 2.5, 2.5);
     car = carModel(mats); car.position.set(carPoint.x, world.terrain.height(carPoint.x, carPoint.z), carPoint.z); car.rotation.y = Math.atan2(home.frame.v.x, home.frame.v.z); scene.add(car);
@@ -153,12 +160,12 @@ async function load() {
       object.visible=!item.done;
       collectibles.push(item); interactables.push(item);
     }
-    $('#status').textContent = `122 Wege + Küstenwege · ${world.buildings.length} Gebäude im Datensatz · Strandspaziergang v0.16${avatars.some(a => a.userData.model === 'fallback') ? ' · Ersatzfigur aktiv' : ''}`;
+    $('#status').textContent = `122 Wege + Küstenwege · ${world.buildings.length} Gebäude im Datensatz · Strandspaziergang v0.17${avatars.some(a => a.userData.model === 'fallback') ? ' · Ersatzfigur aktiv' : ''}`;
     ready = true;
     if (new URLSearchParams(location.search).has('test')) {
       // Deliberate opt-in for reproducible browser checks; absent in normal play.
       window.__game = { world, player, family, ida, car, home, route, BEACH, get mission(){return mission;}, get grid() { return collisionGrid; }, collectibles, interactables,
-        state: () => ({ yaw, pitch, dist, target: target.toArray(), player: player.position.toArray(), pointers: pointers.size, joystick: { ...joystick }, collected, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, frameTime, shadows: renderer.shadowMap.enabled }),
+        state: () => ({ yaw, pitch, dist, selectedSpeed, walkingSpeed, target: target.toArray(), player: player.position.toArray(), pointers: pointers.size, joystick: { ...joystick }, collected, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, frameTime, shadows: renderer.shadowMap.enabled }),
         teleport: (x, z) => { const p = safePoint({ x, z }); player.position.set(p.x, world.terrain.height(p.x, p.z), p.z); resetCamera(); }, resetCamera, renderer, scene, camera };
     }
   } catch (e) {
@@ -175,12 +182,13 @@ function frame(now) {
     let dz = Number(keys.has('s') || keys.has('arrowdown')) - Number(keys.has('w') || keys.has('arrowup')) + joystick.z;
     const len = Math.max(1, Math.hypot(dx, dz)); dx /= len; dz /= len;
     const mx = dx * Math.cos(yaw) + dz * Math.sin(yaw), mz = -dx * Math.sin(yaw) + dz * Math.cos(yaw), before = player.position.clone();
-    const next = moveActor({ x: before.x, z: before.z }, mx * 3.2 * dt, mz * 3.2 * dt, .32, collisionGrid, world.terrain);
+    walkingSpeed=approachSpeed(walkingSpeed,selectedSpeed,dt);
+    const next = moveActor({ x: before.x, z: before.z }, mx * walkingSpeed * dt, mz * walkingSpeed * dt, .32, collisionGrid, world.terrain);
     next.x=Math.max(next.x,shoreX(next.z)+7);next.y=world.terrain.height(next.x,next.z);
     player.position.set(next.x, next.y, next.z); delta.subVectors(player.position, before); target.add(delta);
-    const moved = Math.hypot(delta.x, delta.z), amount = clamp(moved / (3.2 * dt || 1), 0, 1); motionTime += dt * amount;
+    const moved = Math.hypot(delta.x, delta.z), amount = clamp(moved / (walkingSpeed * dt || 1), 0, 1); motionTime += dt * amount;
     if (moved > .001) { const angle = Math.atan2(mx, mz); player.rotation.y += Math.atan2(Math.sin(angle - player.rotation.y), Math.cos(angle - player.rotation.y)) * Math.min(1, dt * 12); }
-    player.userData.update(dt, amount); family.userData.update(dt, 0); ida.userData.update(dt, 0);
+    player.userData.update(dt, amount, walkingSpeed / 3.2); family.userData.update(dt, 0); ida.userData.update(dt, 0);
   }
   pitch = clamp(pitch, .2, 1.42); dist = clamp(dist, 4, 250); target.x = clamp(target.x, AREA.minX + 2, AREA.maxX - 2); target.z = clamp(target.z, AREA.minZ + 2, AREA.maxZ - 2);
   target.y = world.terrain.height(target.x, target.z) + 1;
@@ -189,7 +197,7 @@ function frame(now) {
   // cast shadows; distant detail and vegetation have their own distance limits.
   if (dist < 70) {
     const direction = desired.clone().sub(target), length = direction.length(); ray.set(target, direction.normalize()); ray.far = length;
-    const hit = ray.intersectObjects(buildingObjects.filter(o => !inside(target, o.b.points)).flatMap(b => [b.shell, b.cap]), false)[0];
+    const hit = ray.intersectObjects(buildingObjects.filter(o => !inside(target, o.b.points)).flatMap(b => [b.shell, b.cap, ...(b.root.userData.cameraOccluders||[])]), false)[0];
     if (hit && hit.distance > .7) desired.copy(target).addScaledVector(direction, Math.max(.65, hit.distance - .3));
   }
   desired.y = Math.max(desired.y, world.terrain.height(desired.x, desired.z) + .65); camera.position.copy(desired); camera.lookAt(target);

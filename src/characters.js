@@ -37,10 +37,10 @@ export async function loadCharacter(id, mats) {
       const materials = Array.isArray(node.material) ? node.material : [node.material];
       for (const material of materials) { material.envMapIntensity = .65; if (material.normalMap) material.normalScale.multiplyScalar(.35); if (material.map) material.map.anisotropy = 4; }
     });
-    root.userData.update = (dt, movement = 0) => {
+    root.userData.update = (dt, movement = 0, speedRatio = 1) => {
       blend = T.MathUtils.damp(blend, T.MathUtils.clamp(movement, 0, 1), 10, dt);
       actions.Idle.setEffectiveWeight(1 - blend);
-      actions.Walk.setEffectiveWeight(blend).setEffectiveTimeScale(1.65);
+      actions.Walk.setEffectiveWeight(blend).setEffectiveTimeScale(1.65 * T.MathUtils.clamp(speedRatio, 1, 2.5));
       asset.scene.position.y = 0; mixer.update(dt); root.updateMatrixWorld(true);
       for (const node of skinned) node.skeleton.update();
       // Keep the sampled sole contour in contact with the actor's ground plane.
