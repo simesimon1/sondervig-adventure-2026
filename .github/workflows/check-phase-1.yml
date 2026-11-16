@@ -25,3 +25,5 @@ jobs:
           node --check src/coast.js
           node --check src/beach.js
           node --check src/mission.js
+          node --check src/movement.js
+          node --check src/holiday-home.js
