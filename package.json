@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/world.test.js tests/characters.test.js",
+    "test": "node --test tests/world.test.js tests/characters.test.js tests/beach.test.js",
     "serve": "python3 -m http.server 8000"
   }
 }

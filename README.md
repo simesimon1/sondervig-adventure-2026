@@ -2,6 +2,14 @@
 
 Browserbasiertes Familienabenteuer mit Three.js. Bestehendes Spiel: **v0.10** (`index.html`). OSM-Testkarte: **v0.11.2**. Die bisherige OSM-3D-Vorschau v0.13 wird in Phase 1 zu einer begehbaren **v0.14** weiterentwickelt.
 
+## v0.16 – erster Strandspaziergang
+
+Diese Branch ergänzt die belegte OSM-Küstenlinie und vier Küstenwege, eine vollständige Mission mit drei Strandmuscheln, Richtungsanzeige und gespeichertem Fortschritt. Nach dem Gespräch mit Swantje führt der Weg über Harbo Stages Vej zum Strand und wieder nach Hause. Hilfe bietet Missionsneustart und Figurenatelier; am Strand gibt es „Meerblick“.
+
+[Quellen, Grenzen und Tests](docs/phase-3-beach.md). Die Hauszuordnung und reale Dünenhöhen bleiben unbestätigt. Figuren sind weiterhin stilisierte Entwürfe; Simon hat feinere Haarbüschel. Die Originalkarten bleiben privat.
+
+Tests dieses Standes: `npm test` und `python3 tests/beach_browser.py`. `browser_smoke.py` dokumentiert die älteren v0.14/v0.15-Abläufe mit frei sammelbaren Muscheln; der neue Missionsablauf wird durch `beach_browser.py` geprüft.
+
 ## Figurenprototyp v0.15
 
 Diese Entwicklungsbranch baut auf der v0.14 aus PR #1 auf. Neu sind eigene GLB-Modelle von Simon, Swantje und Ida nach den Charakterkarten, Skelettanimationen, ein separates Figurenatelier und eine erste Material-/Lichtüberarbeitung. [Umfang und Grenzen](docs/phase-2-characters.md) · [Modellherkunft](assets/characters/README.md).

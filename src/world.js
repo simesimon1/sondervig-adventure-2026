@@ -1,6 +1,7 @@
+import { shoreX } from './coast.js';
 // Local metres: east = +x, south = +z. Origin retained from the v0.13 preview.
 export const ORIGIN = { lat: 56.11246784, lon: 8.12092021 };
-export const AREA = { minX: -250, maxX: 170, minZ: -180, maxZ: 180 };
+export const AREA = { minX: -1020, maxX: 170, minZ: -180, maxZ: 180 };
 export const HOME_ID = 696149108; // Nearest footprint to the old marker; address unverified.
 export const GROUND = 1.2; // Artistic local datum, NOT metres above sea level.
 export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -113,11 +114,14 @@ export function makeWorld(json) {
   }
   function rawHeight(x, z) {
     const c = clearance(x, z);
+    const shore = x-shoreX(z);
+    if (shore < 0) return -.3;
+    if (shore < 18) return -.3 + 1.5 * shore / 18;
     // > grid diagonal (2 * sqrt(2)) keeps every interpolated pad level.
     const freedom = smooth(3.1, 11, Math.min(c.house, c.road));
     // Continuous sculpted terrain, blended to level pads/road corridors.
     const wave = Math.max(0, .7 + .55 * Math.sin(x * .037 + z * .021) + .35 * Math.sin(z * .064 - x * .014));
-    const dunes = wave * (.7 + 2.4 * smooth(30, 220, -x));
+    const dunes = Math.min(1, Math.max(0,(shore-35)/55)) * wave * (.7 + 2.4 * smooth(30, 220, -x));
     return GROUND + freedom * (dunes + .12 * Math.sin(x * .11) * Math.sin(z * .09));
   }
   const terrain = makeTerrain(rawHeight);
