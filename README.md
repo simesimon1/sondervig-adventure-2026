@@ -2,6 +2,12 @@
 
 Browserbasiertes Familienabenteuer mit Three.js. Bestehendes Spiel: **v0.10** (`index.html`). OSM-Testkarte: **v0.11.2**. Die bisherige OSM-3D-Vorschau v0.13 wird in Phase 1 zu einer begehbaren **v0.14** weiterentwickelt.
 
+## v0.17 – Lauftempo und Ferienhausreferenz
+
+Drei manuelle Tempotasten (Normal/Mittel/Schnell), PC 1/2/3, gespeicherte Auswahl und sanfte Beschleunigung. Erste Korrektur des Ferienhauses nach der nun einsehbaren Esmark-Außenansicht: dunkle horizontale Fassade, große echte Fensteröffnungen, Dachrinnen und Terrassenmöbel. Geometrie und Lage bleiben angenähert. Figurenähnlichkeit und Gesamtfotorealismus sind **nicht** erreicht. [Umfang und offene Grafikarbeit](docs/phase-4-feedback.md).
+
+Prüfen: `npm test`, `python3 tests/speed_browser.py`, `python3 tests/beach_browser.py`.
+
 ## v0.16 – erster Strandspaziergang
 
 Diese Branch ergänzt die belegte OSM-Küstenlinie und vier Küstenwege, eine vollständige Mission mit drei Strandmuscheln, Richtungsanzeige und gespeichertem Fortschritt. Nach dem Gespräch mit Swantje führt der Weg über Harbo Stages Vej zum Strand und wieder nach Hause. Hilfe bietet Missionsneustart und Figurenatelier; am Strand gibt es „Meerblick“.

@@ -1,5 +1,6 @@
 import * as T from '../vendor/three.module.js';
 import { shoreX } from './coast.js';
+import { holidayMaterials, refineHolidayHome } from './holiday-home.js';
 import { AREA, GROUND, HOME_ID, random, clamp, bounds, overlaps, localPoint, roofHeight, splitPolygon, subtractTriangle } from './world.js';
 
 function texture(kind) {
@@ -61,10 +62,11 @@ function surface(buffer, material) {
 }
 export function terrainMesh(world, mats) {
   const { cols, rows, step, heights } = world.terrain, pos = [], colors = [], uv = [], idx = [];
+  const home = world.buildings.find(b=>b.id===HOME_ID), lawn=new T.Color(0x708752);
   const sand = new T.Color(0xdfd3b5), green = new T.Color(0x9ba78c);
   for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
     const x = AREA.minX + i * step, z = AREA.minZ + j * step, y = heights[j * (cols + 1) + i]; pos.push(x, y, z); uv.push(x / 7, z / 7);
-    const color = sand.clone().lerp(green, clamp((x-shoreX(z)<65?0:.65) - (y - GROUND) * .18 + .18 * Math.sin(x * .08 + z * .07), .04, .85)); colors.push(color.r, color.g, color.b);
+    const color = sand.clone().lerp(green, clamp((x-shoreX(z)<65?0:.65) - (y - GROUND) * .18 + .18 * Math.sin(x * .08 + z * .07), .04, .85)); const dx=x-home.frame.center.x,dz=z-home.frame.center.z,u=dx*home.frame.u.x+dz*home.frame.u.z,v=dx*home.frame.v.x+dz*home.frame.v.z;const garden=Math.max(0,Math.min(1,(1-((u-8)/21)**4-(v/20)**4)*3));color.lerp(lawn,garden*.8);colors.push(color.r, color.g, color.b);
     if (i < cols && j < rows) { const a = j * (cols + 1) + i; idx.push(a, a + cols + 1, a + 1, a + 1, a + cols + 1, a + cols + 2); }
   }
   const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new T.Float32BufferAttribute(colors, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
@@ -120,6 +122,7 @@ export function roadMeshes(world, mats) {
 }
 
 export function buildingModel(b, mats) {
+  if(b.id===HOME_ID)mats=holidayMaterials(mats);
   const root = new T.Group(), f = b.frame, walls = { position: [], uv: [] }, roof = { position: [], uv: [] };
   root.position.set(f.center.x, GROUND, f.center.z);
   const relative = (p, y) => ({ x: p.x - f.center.x, y, z: p.z - f.center.z });
@@ -161,7 +164,7 @@ export function buildingModel(b, mats) {
     const topMid = point(.5, .025); trim.box(topMid.x, b.height - .06, topMid.z, len, .11, .12, rot);
     for (const t of [.025, .975]) { const p = point(t); trim.box(p.x, b.height / 2, p.z, .09, b.height, .09, rot); }
     if (len < 3) continue;
-    const count = Math.max(1, Math.floor(len / 3.2));
+    const count = b.id===HOME_ID?0:Math.max(1, Math.floor(len / 3.2));
     for (let j = 0; j < count; j++) {
       const t = (j + .5) / count, p = point(t, .07), door = b.id === HOME_ID && i === 3 && j === 1;
       const w = door ? .94 : Math.min(1.45, len / count - .9), h = door ? 2.08 : 1.15, y = door ? 1.04 : 1.65;
@@ -188,7 +191,8 @@ export function buildingModel(b, mats) {
   }
   for (const [batch, mat] of [[foundation, mats.concrete], [trim, mats.trim], [glass, mats.glass], [dark, mats.dark]]) if (batch.position.length) detail.add(batch.mesh(mat));
   const lod = new T.LOD(); lod.addLevel(detail, 0); lod.addLevel(new T.Group(), b.id === HOME_ID ? 95 : 48); root.add(lod);
-  return { root, shell, cap, lod };
+  const finalShell=b.id===HOME_ID?refineHolidayHome(b,root,shell,cap,detail,mats,Batch):shell;
+  return { root, shell:finalShell, cap, lod };
 }
 
 export function vegetation(world, scene) {
@@ -214,6 +218,7 @@ export function vegetation(world, scene) {
   const tiles = new Map(), matrix = new T.Matrix4(), quat = new T.Quaternion(), count = 14000;
   for (let i = 0; i < count; i++) {
     const x = AREA.minX + random(i * 3 + 4) * (AREA.maxX - AREA.minX), z = AREA.minZ + random(i * 5 + 99) * (AREA.maxZ - AREA.minZ), c = world.clearance(x, z);
+    const h=world.buildings.find(b=>b.id===HOME_ID).frame;const dx=x-h.center.x,dz=z-h.center.z,u=dx*h.u.x+dz*h.u.z,v=dx*h.v.x+dz*h.v.z;if(u>-5&&u<23&&Math.abs(v)<18)continue;
     if (x < shoreX(z)+65 || c.road < 1 || c.house < 1.8) continue;
     const id = `${Math.floor(x / 32)},${Math.floor(z / 32)}`;
     if (!tiles.has(id)) tiles.set(id, []); tiles.get(id).push({ x, z, i });
