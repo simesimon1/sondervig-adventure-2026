@@ -1,15 +1,15 @@
 {
-  "version": "0.15",
+  "version": "0.16",
   "format": "glTF 2.0 / GLB",
   "characters": [
     {
       "name": "Simon",
       "file": "simon.glb",
       "height_m": 1.88,
-      "triangles": 31378,
-      "vertices": 16077,
+      "triangles": 32730,
+      "vertices": 16805,
       "bones": 18,
-      "bytes": 1274264,
+      "bytes": 1332268,
       "animations": [
         "Idle",
         "Walk"

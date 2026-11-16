@@ -1,4 +1,5 @@
 import * as T from '../vendor/three.module.js';
+import { shoreX } from './coast.js';
 import { AREA, GROUND, HOME_ID, random, clamp, bounds, overlaps, localPoint, roofHeight, splitPolygon, subtractTriangle } from './world.js';
 
 function texture(kind) {
@@ -63,7 +64,7 @@ export function terrainMesh(world, mats) {
   const sand = new T.Color(0xdfd3b5), green = new T.Color(0x9ba78c);
   for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
     const x = AREA.minX + i * step, z = AREA.minZ + j * step, y = heights[j * (cols + 1) + i]; pos.push(x, y, z); uv.push(x / 7, z / 7);
-    const color = sand.clone().lerp(green, clamp(.65 - (y - GROUND) * .18 + .18 * Math.sin(x * .08 + z * .07), .04, .85)); colors.push(color.r, color.g, color.b);
+    const color = sand.clone().lerp(green, clamp((x-shoreX(z)<65?0:.65) - (y - GROUND) * .18 + .18 * Math.sin(x * .08 + z * .07), .04, .85)); colors.push(color.r, color.g, color.b);
     if (i < cols && j < rows) { const a = j * (cols + 1) + i; idx.push(a, a + cols + 1, a + 1, a + 1, a + cols + 1, a + cols + 2); }
   }
   const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new T.Float32BufferAttribute(colors, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
@@ -213,7 +214,7 @@ export function vegetation(world, scene) {
   const tiles = new Map(), matrix = new T.Matrix4(), quat = new T.Quaternion(), count = 14000;
   for (let i = 0; i < count; i++) {
     const x = AREA.minX + random(i * 3 + 4) * (AREA.maxX - AREA.minX), z = AREA.minZ + random(i * 5 + 99) * (AREA.maxZ - AREA.minZ), c = world.clearance(x, z);
-    if (c.road < 1 || c.house < 1.8) continue;
+    if (x < shoreX(z)+65 || c.road < 1 || c.house < 1.8) continue;
     const id = `${Math.floor(x / 32)},${Math.floor(z / 32)}`;
     if (!tiles.has(id)) tiles.set(id, []); tiles.get(id).push({ x, z, i });
   }
